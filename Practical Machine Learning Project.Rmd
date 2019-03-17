@@ -1,0 +1,90 @@
+---
+title: "Practical Machine Learning Project"
+author: "Ruohua Yi"
+date: "February 28, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+##Overview 
+To monitor the quality of doing exercise, the data are collected from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. The goal is to predict the manner in which the six young health participants did the exercise. This is the "classe" variable in the data set. It has six levels, exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+
+The data set contains both useful and unuseful variables, so the first step is always to clean the data The following step is to subset the data into training set and testing set. Models are built with the training set and tested with testing set. After finding out the best model, the final prediction can be made. 
+
+
+## Downloading files and reading both training and testing data set into R
+
+```{r}
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="c:/Users/yii/Desktop/R code/pmlTraining.csv")
+destFile<-("c:/Users/yii/Desktop/R code/pmlTesting.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile=destFile)
+pmlTraining<-read.csv("pmlTraining.csv")
+pmlTesting<-read.csv("pmlTesting.csv")
+dim(pmlTraining)
+```
+
+ 
+## Cleaning the training dataset
+* Remove some of the columns that have near zero useful values 
+* Remove unnecessary variables that has no relation to the outcome "classe". 
+* Remove the variables with too many missing values.
+
+```{r, echo=TRUE}
+library(dplyr)
+library(ggplot2) 
+library(lattice) 
+library(caret)
+nz<- nearZeroVar(pmlTraining)
+pmlTraining<- pmlTraining[,-nz]
+pmlTraining<- pmlTraining[,-c(1:7)]
+NAs <- sapply(pmlTraining, function(x) mean(is.na(x))) > 0.90
+pmlTraining<-pmlTraining[,NAs==FALSE]
+dim(pmlTraining)
+```
+
+After data cleaning, only 52 variables are left in the training data.  
+
+## Spliting the dataset into training and testing 
+```{r}
+set.seed(41)
+inTrain<-createDataPartition(y=pmlTraining$classe,p=0.7,list=FALSE)
+training<-pmlTraining[inTrain,]
+testing<-pmlTraining[-inTrain,]
+```
+
+## Building model and cross validation
+### Modelling with random forest 
+```{r}
+modRf<-train(classe~.,data=training, method="rf")
+confusionMatrix(testing$classe,predict(modRf,newdata=testing))
+```
+
+The accuracy is very high.
+
+### Modelling with boosting
+```{r}
+modBst<-train(classe~.,data=training, method="gbm",verbose=FALSE)
+confusionMatrix(testing$classe,predict(modBst,newdata=testing))
+```
+
+The accuracy is high, but lower than modRf. 
+
+### Modelling with regression tree
+```{r}
+modRpt<-train(classe~.,data=training, method="rpart")
+confusionMatrix(testing$classe,predict(modRpt,newdata=testing))
+```
+
+The accuracy is too low. 
+
+After building and running three models, we can pick the one with highest accuracy, random forest to predict pmlTesting data. 
+
+```{r}
+predict(modRf,newdata=pmlTesting)
+```
+
+I put the final prediction into the quiz, and got all 20 points.
